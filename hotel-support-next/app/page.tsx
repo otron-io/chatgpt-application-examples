@@ -32,11 +32,23 @@ type ResolutionOption = {
 
 type SupportResponse = {
   requestText: string;
+  requestId?: string;
+  status?: "pending" | "resolved" | "closed";
   booking?: BookingSummary | null;
   needsMoreInfo: boolean;
   infoRequired: Array<{ label: string; reason: string }>;
   resolutionOptions: ResolutionOption[];
   recommendedNextAction: string;
+  outcome?: {
+    title: string;
+    summary: string;
+    actions: string[];
+    impact: string;
+    escalationLevel: "self_service" | "agent" | "manager";
+    resolvedBy?: string;
+    resolvedAt: string;
+    notes?: string;
+  } | null;
   createdAt: string;
 };
 
@@ -312,32 +324,105 @@ function SupportView() {
         <BookingCard booking={response.booking} />
         <InfoNeeded info={response.infoRequired} />
 
-        <section className="w-full text-left">
-          <div className="mb-3 flex items-baseline justify-between">
-            <div>
+        {response.outcome ? (
+          <section className="w-full text-left">
+            <div className="mb-3">
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">
-                Resolution options
+                Resolution outcome
               </p>
               <p className="text-sm text-slate-600 dark:text-slate-300">
-                {response.resolutionOptions.length} recommendation(s) to review with the guest
+                The hotel has reviewed your request and provided the following resolution
               </p>
             </div>
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            {response.resolutionOptions.map((option) => (
-              <ResolutionCard key={option.title} option={option} />
-            ))}
-          </div>
-        </section>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm dark:border-emerald-600/50 dark:bg-emerald-900/30">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-800 dark:text-emerald-200">
+                  Resolved
+                </span>
+                {response.outcome.resolvedBy && (
+                  <span className="text-xs text-slate-600 dark:text-slate-400">
+                    by {response.outcome.resolvedBy}
+                  </span>
+                )}
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  {new Date(response.outcome.resolvedAt).toLocaleString()}
+                </span>
+              </div>
+              <h3 className="text-lg font-semibold text-emerald-900 dark:text-emerald-50">
+                {response.outcome.title}
+              </h3>
+              <p className="mt-2 text-sm text-emerald-800 dark:text-emerald-100">
+                {response.outcome.summary}
+              </p>
+              <div className="mt-4 space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                  Next steps
+                </p>
+                <ul className="list-disc space-y-1 pl-5 text-sm text-emerald-800 dark:text-emerald-100">
+                  {response.outcome.actions.map((action) => (
+                    <li key={action}>{action}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="mt-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                  Impact
+                </p>
+                <p className="mt-1 text-sm text-emerald-800 dark:text-emerald-100">
+                  {response.outcome.impact}
+                </p>
+              </div>
+              {response.outcome.notes && (
+                <div className="mt-4 rounded-lg bg-emerald-100/50 p-3 dark:bg-emerald-900/20">
+                  <p className="text-xs font-medium uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                    Notes
+                  </p>
+                  <p className="mt-1 text-sm text-emerald-800 dark:text-emerald-100">
+                    {response.outcome.notes}
+                  </p>
+                </div>
+              )}
+            </div>
+          </section>
+        ) : response.status === "pending" ? (
+          <section className="w-full rounded-2xl border border-amber-200 bg-amber-50 p-4 text-left dark:border-amber-600/50 dark:bg-amber-900/30">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700 dark:text-amber-300">
+              Request status
+            </p>
+            <p className="mt-2 text-sm text-amber-900 dark:text-amber-50">
+              Your request has been submitted and is being reviewed by our support team. We&apos;ll provide a resolution shortly.
+            </p>
+          </section>
+        ) : (
+          <>
+            <section className="w-full text-left">
+              <div className="mb-3 flex items-baseline justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-300">
+                    Resolution options
+                  </p>
+                  <p className="text-sm text-slate-600 dark:text-slate-300">
+                    {response.resolutionOptions.length} recommendation(s) to review with the guest
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {response.resolutionOptions.map((option) => (
+                  <ResolutionCard key={option.title} option={option} />
+                ))}
+              </div>
+            </section>
 
-        <section className="w-full rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-left dark:border-emerald-600/50 dark:bg-emerald-900/30">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">
-            Recommended next action
-          </p>
-          <p className="mt-2 text-sm text-emerald-900 dark:text-emerald-50">
-            {response.recommendedNextAction}
-          </p>
-        </section>
+            <section className="w-full rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-left dark:border-emerald-600/50 dark:bg-emerald-900/30">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-300">
+                Recommended next action
+              </p>
+              <p className="mt-2 text-sm text-emerald-900 dark:text-emerald-50">
+                {response.recommendedNextAction}
+              </p>
+            </section>
+          </>
+        )}
       </div>
     </div>
   );
