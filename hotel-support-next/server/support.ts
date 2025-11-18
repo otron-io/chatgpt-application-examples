@@ -27,11 +27,23 @@ export type SupportRequest = {
 
 export type SupportResponse = {
   requestText: string;
+  requestId?: string;
+  status?: "pending" | "resolved" | "closed";
   booking?: BookingSummary | null;
   needsMoreInfo: boolean;
   infoRequired: Array<{ label: string; reason: string }>;
   resolutionOptions: ResolutionOption[];
   recommendedNextAction: string;
+  outcome?: {
+    title: string;
+    summary: string;
+    actions: string[];
+    impact: string;
+    escalationLevel: "self_service" | "agent" | "manager";
+    resolvedBy?: string;
+    resolvedAt: string;
+    notes?: string;
+  } | null;
   createdAt: string;
 };
 
