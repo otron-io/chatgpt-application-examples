@@ -1,0 +1,30 @@
+{
+  "name": "hotel-support-next",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "mcp-handler": "^1.0.2",
+    "next": "15.5.5",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "zod": "3.24.2"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3.3.1",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.5",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
