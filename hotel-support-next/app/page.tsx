@@ -390,7 +390,7 @@ function SupportView() {
               Request status
             </p>
             <p className="mt-2 text-sm text-amber-900 dark:text-amber-50">
-              Your request has been submitted and is being reviewed by our support team. We'll provide a resolution shortly.
+              Your request has been submitted and is being reviewed by our support team. We&apos;ll provide a resolution shortly.
             </p>
           </section>
         ) : (
