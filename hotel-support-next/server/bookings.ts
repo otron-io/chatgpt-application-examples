@@ -49,6 +49,41 @@ export type UpdateBookingInput = Partial<
 
 const DATA_PATH = path.join(process.cwd(), "data", "bookings.json");
 
+/**
+ * Simple Mutex to serialize async operations.
+ * Ensures that read-modify-write cycles are atomic.
+ */
+class Mutex {
+  private mutex = Promise.resolve();
+
+  lock(): Promise<() => void> {
+    let unlock: () => void = () => { };
+
+    const nextLock = new Promise<void>((resolve) => {
+      unlock = resolve;
+    });
+
+    // When the previous lock releases, we return our unlock function
+    const willLock = this.mutex.then(() => unlock);
+
+    // The next requester will wait for our nextLock to resolve
+    this.mutex = this.mutex.then(() => nextLock);
+
+    return willLock;
+  }
+
+  async runExclusive<T>(callback: () => Promise<T> | T): Promise<T> {
+    const unlock = await this.lock();
+    try {
+      return await callback();
+    } finally {
+      unlock();
+    }
+  }
+}
+
+const dbMutex = new Mutex();
+
 async function ensureStore() {
   try {
     await fs.access(DATA_PATH);
@@ -99,6 +134,11 @@ function buildBooking(payload: CreateBookingInput): Booking {
 export async function getBookings(
   filters?: BookingFilters
 ): Promise<Booking[]> {
+  // Reads can also be locked if strict consistency is needed,
+  // but for this demo, we prioritize locking writes.
+  // However, to avoid reading a partially written file (unlikely with fs.writeFile but possible),
+  // or to ensure we read the latest state after a write, we can lock.
+  // Given the race condition was about lost updates, locking the mutation methods is sufficient.
   const bookings = await readBookings();
   if (!filters) {
     return bookings;
@@ -163,49 +203,57 @@ export async function getBookingByConfirmation(
 export async function createBooking(
   payload: CreateBookingInput
 ): Promise<Booking> {
-  const bookings = await readBookings();
-  const booking = buildBooking(payload);
-  bookings.push(booking);
-  await writeBookings(bookings);
-  return booking;
+  return dbMutex.runExclusive(async () => {
+    const bookings = await readBookings();
+    const booking = buildBooking(payload);
+    bookings.push(booking);
+    await writeBookings(bookings);
+    return booking;
+  });
 }
 
 export async function updateBooking(
   id: string,
   updates: UpdateBookingInput
 ): Promise<Booking> {
-  const bookings = await readBookings();
-  const index = bookings.findIndex((booking) => booking.id === id);
-  if (index === -1) {
-    throw new Error("Booking not found");
-  }
+  return dbMutex.runExclusive(async () => {
+    const bookings = await readBookings();
+    const index = bookings.findIndex((booking) => booking.id === id);
+    if (index === -1) {
+      throw new Error("Booking not found");
+    }
 
-  const updated: Booking = {
-    ...bookings[index],
-    ...updates,
-    updatedAt: new Date().toISOString(),
-  };
+    const updated: Booking = {
+      ...bookings[index],
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    };
 
-  bookings[index] = updated;
-  await writeBookings(bookings);
-  return updated;
+    bookings[index] = updated;
+    await writeBookings(bookings);
+    return updated;
+  });
 }
 
 export async function deleteBooking(id: string): Promise<void> {
-  const bookings = await readBookings();
-  const filtered = bookings.filter((booking) => booking.id !== id);
-  await writeBookings(filtered);
+  return dbMutex.runExclusive(async () => {
+    const bookings = await readBookings();
+    const filtered = bookings.filter((booking) => booking.id !== id);
+    await writeBookings(filtered);
+  });
 }
 
 export async function seedBookings(): Promise<{ inserted: number }> {
-  const now = new Date().toISOString();
-  const normalized = (seedBookingsData as Booking[]).map((booking) => ({
-    ...booking,
-    createdAt: booking.createdAt ?? now,
-    updatedAt: booking.updatedAt ?? now,
-  }));
-  await writeBookings(normalized);
-  return { inserted: normalized.length };
+  return dbMutex.runExclusive(async () => {
+    const now = new Date().toISOString();
+    const normalized = (seedBookingsData as Booking[]).map((booking) => ({
+      ...booking,
+      createdAt: booking.createdAt ?? now,
+      updatedAt: booking.updatedAt ?? now,
+    }));
+    await writeBookings(normalized);
+    return { inserted: normalized.length };
+  });
 }
 
 export type BookingStats = {
